@@ -9,11 +9,43 @@ from typing import Dict, Any
 from workflow import EvaluationWorkflow
 from agents import EvaluationAgentFactory
 from config import DEEPSEEK_API_CONFIG, MODEL_CONFIG, EVALUATION_CONFIG
-
+import sys
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("evaluation")
 
+
+def handler(event=None, context=None):
+    """
+    API网关入口函数（阿里云函数计算专用）
+    """
+    try:
+        # 解析输入内容
+        if event and 'body' in event:
+            content = json.loads(event['body']).get('content', '')
+        else:
+            content = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else ""
+
+        if not content:
+            return {
+                "statusCode": 400,
+                "body": json.dumps({"error": "评测内容不能为空"})
+            }
+
+        # 执行评测
+        result = evaluate(content)
+
+        return {
+            "statusCode": 200,
+            "body": json.dumps(result, ensure_ascii=False)
+        }
+
+    except Exception as e:
+        logger.exception("API处理失败")
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"error": str(e)})
+        }
 
 def evaluate(content: str) -> Dict[str, Any]:
     """
@@ -79,13 +111,17 @@ def main():
         return
 
     # 获取评测内容
-    content = sys.argv[1]
+    content = sys.argv[1];
 
     # 执行评测
     result = evaluate(content)
-
-    # 打印结果
     print(json.dumps(result, ensure_ascii=False, indent=2))
+    return{
+        "statusCode": 200,
+        "data":result
+    }
+    # 打印结果
+
 
 
 if __name__ == "__main__":
